@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Create Appointment</title>
+<link rel="stylesheet" href="/css/style.css">
+</head><body>
+  <h2>Create Appointment</h2>
+  <form id="apptForm">
+    <select id="patient"></select>
+    <select id="doctor"></select>
+    <select id="room"></select>
+    <select id="service"></select>
+    <input type="datetime-local" id="datetime" required>
+    <textarea id="comment" placeholder="Comment"></textarea>
+    <button>Create</button>
+    <div id="msg"></div>
+  </form>
+
+<script src="/js/appointment.js"></script>
+</body></html>
