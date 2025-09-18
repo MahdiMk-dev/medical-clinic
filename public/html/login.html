@@ -1,18 +1,39 @@
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Clinic Login</title>
-<link rel="stylesheet" href="/css/style.css">
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clinic Login — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/login.css">
 </head>
 <body>
-  <main class="login-card">
-    <h1>Login</h1>
-    <form id="loginForm">
-      <input name="username" placeholder="Username" required>
-      <input name="password" placeholder="Password" type="password" required>
-      <button>Login</button>
-      <div id="err" style="color:red"></div>
-    </form>
-  </main>
-<script src="/js/login.js"></script>
+  <div class="login-wrapper">
+    <main class="login-box" role="main" aria-labelledby="loginTitle">
+      <h1 id="loginTitle" class="title">Medical Clinic</h1>
+
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" inputmode="text" autocomplete="username" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+          <button type="button" class="toggle-password" aria-label="Toggle password visibility">Show</button>
+        </div>
+
+        <div class="form-actions">
+          <label class="remember"><input id="remember" type="checkbox"> Keep me signed in</label>
+          <button id="loginBtn" type="submit">Sign in</button>
+        </div>
+
+        <div id="loginMessage" role="status" aria-live="polite"></div>
+      </form>
+    </main>
+  </div>
+
+<script src="../js/login.js" defer></script>
 </body>
 </html>
