@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Appointments — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/appointments.css">
+</head>
+<body>
+  <div class="page-wrapper">
+    <header class="topbar">
+      <h1 class="title">Appointments</h1>
+      <div class="controls">
+        <input id="dateInput" type="date" aria-label="Choose date">
+        <input id="searchInput" type="text" placeholder="Search patient / doctor / reason…" aria-label="Search appointments">
+        <select id="statusFilter" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option>Scheduled</option>
+          <option>Checked-in</option>
+          <option>Completed</option>
+          <option>Cancelled</option>
+        </select>
+        <button id="refreshBtn" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <main class="card">
+      <div class="table-wrap">
+        <table id="apptTable" class="appt-table" aria-live="polite">
+          <thead>
+            <tr>
+              <th data-sort="time">Time</th>
+              <th data-sort="patient_name">Patient</th>
+              <th data-sort="doctor_name">Doctor</th>
+              <th data-sort="reason">Reason</th>
+              <th data-sort="status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="apptBody">
+            <tr><td colspan="5" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="statusMsg" class="status-msg" role="status" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <script src="../js/appointments.js" defer></script>
+</body>
+</html>
