@@ -13,7 +13,7 @@
       <h1 class="title">Appointments</h1>
       <div class="controls">
         <input id="dateInput" type="date" aria-label="Choose date">
-        <input id="searchInput" type="text" placeholder="Search patient / doctor / reason…" aria-label="Search appointments">
+        <input id="searchInput" type="text" placeholder="Search patient / doctor / room / summary…" aria-label="Search appointments">
         <select id="statusFilter" aria-label="Filter by status">
           <option value="">All statuses</option>
           <option>Scheduled</option>
@@ -21,7 +21,15 @@
           <option>Completed</option>
           <option>Cancelled</option>
         </select>
+        <select id="typeFilter" aria-label="Filter by type">
+          <option value="">All types</option>
+          <option>Consultation</option>
+          <option>Follow-up</option>
+          <option>Procedure</option>
+          <option>Lab</option>
+        </select>
         <button id="refreshBtn" class="btn">Refresh</button>
+        <a class="btn btn-secondary" href="/medical_clinic/public/html/appointment_new.html">New Appointment</a>
       </div>
     </header>
 
@@ -33,17 +41,76 @@
               <th data-sort="time">Time</th>
               <th data-sort="patient_name">Patient</th>
               <th data-sort="doctor_name">Doctor</th>
-              <th data-sort="reason">Reason</th>
+              <th data-sort="room">Room</th>
+              <th data-sort="type">Type</th>
               <th data-sort="status">Status</th>
+              <th data-sort="summary">Summary</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="apptBody">
-            <tr><td colspan="5" class="empty">Loading…</td></tr>
+            <tr><td colspan="8" class="empty">Loading…</td></tr>
           </tbody>
         </table>
       </div>
       <div id="statusMsg" class="status-msg" role="status" aria-live="polite"></div>
     </main>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="modal-header">
+        <h2 id="editTitle">Edit Appointment</h2>
+        <button id="editClose" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <form id="editForm" class="modal-body">
+        <input type="hidden" id="editId">
+
+        <div class="form-row">
+          <label for="editDate">Date</label>
+          <input type="date" id="editDate">
+        </div>
+
+        <div class="form-row two">
+          <div>
+            <label for="editFrom">From</label>
+            <input type="time" id="editFrom">
+          </div>
+          <div>
+            <label for="editTo">To</label>
+            <input type="time" id="editTo">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="editDoctor">Doctor</label>
+          <select id="editDoctor"></select>
+        </div>
+
+        <div class="form-row">
+          <label for="editRoom">Room</label>
+          <select id="editRoom"></select>
+        </div>
+
+        <div class="form-row">
+          <label for="editSummary">Summary</label>
+          <input type="text" id="editSummary" placeholder="e.g. Annual checkup">
+        </div>
+
+        <div class="form-row">
+          <label for="editComment">Comment</label>
+          <textarea id="editComment" rows="3" placeholder="Notes…"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="editCancel" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn">Save</button>
+        </div>
+        <div id="editMsg" class="status-msg"></div>
+      </form>
+    </div>
   </div>
 
   <script src="../js/appointments.js" defer></script>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>New Appointment — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/appointments.css">
+  <style>
+    .new-wrap { max-width: 720px; margin: 0 auto; }
+    .page-title { margin: 0 0 12px 0; font-size: 22px; color: #0E4B50; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper new-wrap">
+    <h1 class="page-title">New Appointment</h1>
+    <main class="card">
+      <form id="newForm">
+        <div class="form-row">
+          <label for="newPatient">Patient</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="patientSearch" placeholder="Search patients…">
+            <select id="newPatient" required style="flex:1;"></select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="newDoctor">Doctor</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="doctorSearch" placeholder="Search doctors…">
+            <select id="newDoctor" required style="flex:1;"></select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="newRoom">Room</label>
+          <select id="newRoom" required></select>
+        </div>
+
+        <div class="form-row two">
+          <div>
+            <label for="newDate">Date</label>
+            <input type="date" id="newDate" required>
+          </div>
+          <div>
+            <label for="newType">Type</label>
+            <select id="newType">
+              <option value="">(optional)</option>
+              <option>Consultation</option>
+              <option>Follow-up</option>
+              <option>Procedure</option>
+              <option>Lab</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row two">
+          <div>
+            <label for="newFrom">From</label>
+            <input type="time" id="newFrom" required>
+          </div>
+          <div>
+            <label for="newTo">To</label>
+            <input type="time" id="newTo" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="newSummary">Summary</label>
+          <input type="text" id="newSummary" placeholder="e.g. Blood test">
+        </div>
+
+        <div class="form-row">
+          <label for="newComment">Comment</label>
+          <textarea id="newComment" rows="3" placeholder="Notes…"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <a class="btn btn-ghost" href="/medical_clinic/public/html/appointments.html">Cancel</a>
+          <button type="submit" class="btn">Create</button>
+        </div>
+
+        <div id="newMsg" class="status-msg"></div>
+      </form>
+    </main>
+  </div>
+
+  <script src="../js/appointment_new.js" defer></script>
+</body>
+</html>
