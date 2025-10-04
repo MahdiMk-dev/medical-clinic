@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Rooms — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/medical_clinic/public/css/appointments.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" role="navigation" aria-label="Main">
+      <div class="brand"><div class="brand-logo">BC</div><div class="brand-name">BrightCare</div></div>
+      <nav class="nav">
+        <div class="nav-section">
+          <div class="nav-title">Appointments</div>
+          <a class="nav-link" href="/medical_clinic/public/html/appointments.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/appointment_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Patients</div>
+          <a class="nav-link" href="/medical_clinic/public/html/patients.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/patient_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Rooms</div>
+          <a class="nav-link active" href="/medical_clinic/public/html/rooms.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/room_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Doctors</div>
+          <a class="nav-link" href="/medical_clinic/public/html/doctors.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/doctor_new.html">Add</a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><button id="logoutBtn" class="logout-btn" type="button">Log out</button></div>
+    </aside>
+
+    <main class="container">
+      <header class="page-header">
+        <h1>Rooms</h1>
+        <a class="link-new" href="./room_new.html">+ New Room</a>
+      </header>
+
+      <div class="table-card">
+        <div class="table-wrap">
+          <table class="data-table" id="roomsTable">
+            <thead>
+              <tr>
+                <th>Room #</th>
+                <th>Type</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="roomsBody">
+              <tr><td colspan="3" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div id="statusMsg" class="status-msg"></div>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const t = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!t) { location.href='./login.html'; return; }
+      const btn=document.getElementById('logoutBtn');
+      if (btn) btn.addEventListener('click', ()=>{ localStorage.removeItem('token'); sessionStorage.removeItem('token'); location.href='./login.html'; });
+    })();
+
+    (function(){
+      const API = '/medical_clinic/api/rooms.php';
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const tbody = document.getElementById('roomsBody');
+      const status = document.getElementById('statusMsg');
+      async function load(){
+        try{
+          tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+          const res = await fetch(API, { headers: { Authorization: 'Bearer ' + token }});
+          if (!res.ok) throw new Error('Failed to load rooms');
+          const data = await res.json();
+          const rows = data?.rooms || data || [];
+          if (!rows.length) { tbody.innerHTML = '<tr><td colspan="3" class="empty">No rooms</td></tr>'; }
+          else {
+            tbody.innerHTML = rows.map(r => `
+              <tr>
+                <td>${escapeHtml(String(r.id))}</td>
+                <td>${escapeHtml(r.type||'')}</td>
+                <td>${escapeHtml(r.created_at||'')}</td>
+              </tr>
+            `).join('');
+          }
+          status.textContent = `${rows.length} room(s)`;
+        }catch(e){
+          console.error(e);
+          status.textContent = e.message || 'Error';
+          tbody.innerHTML = '<tr><td colspan="3" class="empty">Unable to load</td></tr>';
+        }
+      }
+      function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+      load();
+    })();
+  </script>
+</body>
+</html>

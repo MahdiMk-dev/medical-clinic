@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Doctors — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/medical_clinic/public/css/appointments.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" role="navigation" aria-label="Main">
+      <div class="brand"><div class="brand-logo">BC</div><div class="brand-name">BrightCare</div></div>
+      <nav class="nav">
+        <div class="nav-section">
+          <div class="nav-title">Appointments</div>
+          <a class="nav-link" href="/medical_clinic/public/html/appointments.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/appointment_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Patients</div>
+          <a class="nav-link" href="/medical_clinic/public/html/patients.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/patient_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Rooms</div>
+          <a class="nav-link" href="/medical_clinic/public/html/rooms.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/room_new.html">Add</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-title">Doctors</div>
+          <a class="nav-link active" href="/medical_clinic/public/html/doctors.html">View</a>
+          <a class="nav-link" href="/medical_clinic/public/html/doctor_new.html">Add</a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><button id="logoutBtn" class="logout-btn" type="button">Log out</button></div>
+    </aside>
+
+    <main class="container">
+      <header class="page-header">
+        <h1>Doctors</h1>
+        <a class="link-new" href="./doctor_new.html">+ New Doctor</a>
+      </header>
+
+      <section class="filters card">
+        <div class="filters-grid">
+          <div class="filters-actions" style="grid-column: 1 / -1;">
+            <input type="text" id="q" placeholder="Search by name/phone/syndicate…">
+          </div>
+        </div>
+      </section>
+
+      <div class="table-card">
+        <div class="table-wrap">
+          <table class="data-table" id="doctorsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Syndicate #</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="doctorsBody">
+              <tr><td colspan="4" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div id="statusMsg" class="status-msg"></div>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      const t = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!t) { location.href='./login.html'; return; }
+      const btn=document.getElementById('logoutBtn');
+      if (btn) btn.addEventListener('click', ()=>{ localStorage.removeItem('token'); sessionStorage.removeItem('token'); location.href='./login.html'; });
+    })();
+
+    (function(){
+      const API = '/medical_clinic/api/doctors.php';
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const q = document.getElementById('q');
+      const tbody = document.getElementById('doctorsBody');
+      const status = document.getElementById('statusMsg');
+
+      async function load(){
+        try{
+          const url = new URL(API, location.origin);
+          if (q.value.trim()) url.searchParams.set('q', q.value.trim());
+          tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+          const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token }});
+          if (!res.ok) throw new Error('Failed to load doctors');
+          const data = await res.json();
+          const rows = data?.doctors || data || [];
+          if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No doctors</td></tr>'; }
+          else {
+            tbody.innerHTML = rows.map(d => `
+              <tr>
+                <td>${escapeHtml((d.fName||'') + ' ' + (d.lName||''))}</td>
+                <td>${escapeHtml(d.phone||'')}</td>
+                <td>${escapeHtml(d.SyndicateNum||'')}</td>
+                <td>${escapeHtml(d.created_at||'')}</td>
+              </tr>
+            `).join('');
+          }
+          status.textContent = `${rows.length} doctor(s)`;
+        }catch(e){
+          console.error(e);
+          status.textContent = e.message || 'Error';
+          tbody.innerHTML = '<tr><td colspan="4" class="empty">Unable to load</td></tr>';
+        }
+      }
+      function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+      q.addEventListener('input', debounce(load,300));
+      function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+      load();
+    })();
+  </script>
+</body>
+</html>
