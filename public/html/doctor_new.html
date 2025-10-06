@@ -33,7 +33,9 @@
           <a class="nav-link" href="/medical_clinic/public/html/doctors.html">View</a>
         </div>
       </nav>
-      <div class="sidebar-footer"><button id="logoutBtn" class="logout-btn" type="button">Log out</button></div>
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="logout-btn" type="button">Log out</button>
+      </div>
     </aside>
 
     <main class="container">
@@ -44,19 +46,19 @@
 
       <form id="doctorForm" class="card card-form" novalidate>
         <div class="grid-3">
-          <label> First name
+          <label>First name
             <input id="fName" required>
           </label>
-          <label> Last name
+          <label>Last name
             <input id="lName" required>
           </label>
-          <label> Middle name
+          <label>Middle name
             <input id="mName">
           </label>
-          <label> Syndicate #
+          <label>Syndicate #
             <input id="SyndicateNum">
           </label>
-          <label> Phone
+          <label>Phone
             <input id="phone" inputmode="tel">
           </label>
         </div>
@@ -71,22 +73,30 @@
   </div>
 
   <script>
+    // Authentication guard + logout
     (function(){
       const t = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!t) { location.href='./login.html'; return; }
       const btn=document.getElementById('logoutBtn');
-      if (btn) btn.addEventListener('click', ()=>{ localStorage.removeItem('token'); sessionStorage.removeItem('token'); location.href='./login.html'; });
+      if (btn) btn.addEventListener('click', ()=>{
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        location.href='./login.html';
+      });
     })();
 
+    // Form handling
     (function(){
-      const API = '/medical_clinic/api/doctor_create.php'; // ensure endpoint exists
+      const API = '/medical_clinic/api/doctors_create.php'; // ✅ Correct filename
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const form = document.getElementById('doctorForm');
       const msg  = document.getElementById('formMsg');
 
       form.addEventListener('submit', async (e)=>{
         e.preventDefault();
+        msg.style.color = '#355F60';
         msg.textContent = 'Saving…';
+
         const payload = {
           fName: document.getElementById('fName').value.trim(),
           lName: document.getElementById('lName').value.trim(),
@@ -94,18 +104,28 @@
           SyndicateNum: document.getElementById('SyndicateNum').value.trim(),
           phone: document.getElementById('phone').value.trim()
         };
+
         try{
           const res = await fetch(API, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + token
+            },
             body: JSON.stringify(payload)
           });
+
           const data = await res.json().catch(()=>({}));
           if (!res.ok) throw new Error(data.error || 'Failed to create doctor');
-          msg.style.color = '#0E4B50'; msg.textContent = 'Created!';
-          setTimeout(()=> location.href='./doctors.html', 400);
+
+          msg.style.color = '#0E4B50';
+          msg.textContent = 'Doctor created successfully!';
+          setTimeout(()=> location.href='./doctors.html', 800);
+
         }catch(err){
-          console.error(err); msg.style.color = '#B00020'; msg.textContent = err.message || 'Error';
+          console.error(err);
+          msg.style.color = '#B00020';
+          msg.textContent = err.message || 'Error';
         }
       });
     })();
