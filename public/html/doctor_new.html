@@ -14,6 +14,7 @@
       <nav class="nav">
         <div class="nav-section">
           <div class="nav-title">Appointments</div>
+                  <a class="nav-link" href="./appointments_calendar.html">Calendar</a>
           <a class="nav-link" href="/medical_clinic/public/html/appointments.html">View</a>
           <a class="nav-link" href="/medical_clinic/public/html/appointment_new.html">Add</a>
         </div>
@@ -87,7 +88,7 @@
 
     // Form handling
     (function(){
-      const API = '/medical_clinic/api/doctors_create.php'; // ✅ Correct filename
+      const API = '/medical_clinic/api/doctor_create.php'; // ✅ Correct filename
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const form = document.getElementById('doctorForm');
       const msg  = document.getElementById('formMsg');

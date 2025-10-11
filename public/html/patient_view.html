@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Patient Details — BrightCare</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/medical_clinic/public/css/appointments.css">
+  <style>
+    /* Inline edit buttons */
+    .edit-btn, .save-btn, .cancel-btn {
+      display: inline-block; margin-left: 8px; padding: 4px 8px;
+      border-radius: 8px; border: 1px solid #CFEAEC;
+      background: #F0FAFB; color: #0E4B50; font-weight: 600; cursor: pointer;
+    }
+    .save-btn { background:#2C9AB7; color:#fff; border-color:#2C9AB7; }
+    .cancel-btn { background:#fff; color:#355F60; border-color:#DDEAEA; }
+    .inline-edit { display:inline-flex; gap:8px; align-items:center; }
+    .inline-edit input[type="text"], .inline-edit input[type="date"], .inline-edit input[type="email"] {
+      padding: 8px 10px; border:1px solid #E6F3F2; border-radius:8px; outline:none;
+      background:#fbffff; font-size:14px;
+    }
+    .kv .actions-cell { width: 160px; }
+    .muted-small { color:#577B7B; font-size:12px; margin-left:8px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" role="navigation" aria-label="Main">
+    <div class="brand"><div class="brand-logo">BC</div><div class="brand-name">BrightCare</div></div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-title">Appointments</div>
+        <a class="nav-link" href="./appointments_calendar.html">Calendar</a>
+        <a class="nav-link" href="/medical_clinic/public/html/appointments.html">View</a>
+        <a class="nav-link" href="/medical_clinic/public/html/appointment_new.html">Add</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-title">Patients</div>
+        <a class="nav-link" href="/medical_clinic/public/html/patients.html">View</a>
+        <a class="nav-link" href="/medical_clinic/public/html/patient_new.html">Add</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-title">Doctors</div>
+        <a class="nav-link" href="/medical_clinic/public/html/doctors.html">View</a>
+        <a class="nav-link" href="/medical_clinic/public/html/doctor_new.html">Add</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-title">Rooms</div>
+        <a class="nav-link" href="/medical_clinic/public/html/rooms.html">View</a>
+        <a class="nav-link" href="/medical_clinic/public/html/room_new.html">Add</a>
+      </div>
+    </nav>
+    <div class="sidebar-footer"><button id="logoutBtn" class="logout-btn" type="button">Log out</button></div>
+  </aside>
+
+  <main class="container">
+    <header class="page-header">
+      <h1 id="ptName">Patient</h1>
+      <a id="addApptLink" class="link-new" href="./appointment_new.html">+ New Appointment</a>
+    </header>
+
+    <!-- Demographics: read-only table look with per-field edit -->
+    <section class="card">
+      <h2>Demographics</h2>
+      <table class="kv" aria-label="Patient demographics">
+        <tr>
+          <th>First name</th>
+          <td>
+            <span id="val-first_name"></span>
+            <button class="edit-btn" data-field="first_name">Edit</button>
+            <span id="msg-first_name" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Last name</th>
+          <td>
+            <span id="val-last_name"></span>
+            <button class="edit-btn" data-field="last_name">Edit</button>
+            <span id="msg-last_name" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Phone</th>
+          <td>
+            <span id="val-phone"></span>
+            <button class="edit-btn" data-field="phone">Edit</button>
+            <span id="msg-phone" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Email</th>
+          <td>
+            <span id="val-email"></span>
+            <button class="edit-btn" data-field="email">Edit</button>
+            <span id="msg-email" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>DOB</th>
+          <td>
+            <span id="val-dob"></span>
+            <button class="edit-btn" data-field="dob">Edit</button>
+            <span id="msg-dob" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Address</th>
+          <td>
+            <span id="val-address"></span>
+            <button class="edit-btn" data-field="address">Edit</button>
+            <span id="msg-address" class="muted-small"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Created at</th>
+          <td><span id="val-created_at"></span></td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Future Appointments</h2>
+      <div class="table-wrap">
+        <table class="table" aria-label="Future appointments">
+          <thead>
+            <tr>
+              <th>Date</th><th>Time</th><th>Doctor</th><th>Room</th><th>Type</th><th>Status</th><th>Summary</th>
+            </tr>
+          </thead>
+          <tbody id="futureBody">
+            <tr><td colspan="7" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Past Appointments</h2>
+      <div class="table-wrap">
+        <table class="table" aria-label="Past appointments">
+          <thead>
+            <tr>
+              <th>Date</th><th>Time</th><th>Doctor</th><th>Room</th><th>Type</th><th>Status</th><th>Summary</th>
+            </tr>
+          </thead>
+          <tbody id="pastBody">
+            <tr><td colspan="7" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Auth guard + logout
+  (function(){
+    const t = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!t) { location.href='./login.html'; return; }
+    document.getElementById('logoutBtn').addEventListener('click', ()=>{
+      localStorage.removeItem('token'); sessionStorage.removeItem('token'); location.href='./login.html';
+    });
+  })();
+
+  (function(){
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if (!id) { alert('Missing patient id'); location.href='./patients.html'; return; }
+
+    document.getElementById('addApptLink').href = `./appointment_new.html?patientId=${encodeURIComponent(id)}`;
+
+    const fieldMeta = {
+      first_name: { type:'text',  label:'First name' },
+      last_name:  { type:'text',  label:'Last name'  },
+      phone:      { type:'text',  label:'Phone'      },
+      email:      { type:'email', label:'Email'      },
+      dob:        { type:'date',  label:'DOB'        },
+      address:    { type:'text',  label:'Address'    }
+    };
+
+    load();
+
+    async function load() {
+      try {
+        const res = await fetch(`/medical_clinic/api/patient_show.php?id=${encodeURIComponent(id)}`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load');
+
+        const p = data.patient;
+        const appts = data.appointments || [];
+
+        const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+        document.getElementById('ptName').textContent = fullName || ('Patient #' + p.id);
+
+        // Fill demographic values
+        setText('first_name', p.first_name || '');
+        setText('last_name',  p.last_name  || '');
+        setText('phone',      p.phone      || '');
+        setText('email',      p.email      || '');
+        setText('dob',        (p.dob || '').trim());
+        setText('address',    p.address    || '');
+        document.getElementById('val-created_at').textContent = p.created_at || '';
+
+        // Hook edit buttons
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', () => enterEdit(btn.dataset.field));
+        });
+
+        // Past/Future split using real Date objects (robust)
+        const today = new Date(); today.setHours(0,0,0,0);
+        const toDate = (s) => {
+          const t = (s || '').trim();
+          const d = new Date(t);
+          if (!isNaN(d)) { d.setHours(0,0,0,0); return d; }
+          const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+          return new Date(NaN);
+        };
+
+        const past   = appts.filter(a => toDate(a.date) <  today)
+                            .sort((a,b)=> (a.date+a.start_time).localeCompare(b.date+b.start_time));
+        const future = appts.filter(a => toDate(a.date) >= today)
+                            .sort((a,b)=> (a.date+a.start_time).localeCompare(b.date+b.start_time));
+
+        render('pastBody', past);
+        render('futureBody', future);
+
+      } catch (e) {
+        console.error(e);
+        document.getElementById('pastBody').innerHTML = `<tr><td colspan="7" class="empty">Error</td></tr>`;
+        document.getElementById('futureBody').innerHTML = `<tr><td colspan="7" class="empty">Error</td></tr>`;
+      }
+    }
+
+    function setText(field, val){
+      const el = document.getElementById('val-'+field);
+      el.textContent = val;
+    }
+
+    function enterEdit(field){
+      const meta = fieldMeta[field];
+      const cell = document.getElementById('val-'+field).parentElement;
+      const oldVal = document.getElementById('val-'+field).textContent;
+
+      // Build inline editor
+      const wrap = document.createElement('span');
+      wrap.className = 'inline-edit';
+      const inp = document.createElement('input');
+      inp.type = meta.type;
+      inp.value = oldVal;
+      inp.id = 'edit-'+field;
+      if (meta.type === 'date' && oldVal && oldVal.length>10) {
+        // If value has time part; trim to YYYY-MM-DD
+        inp.value = oldVal.slice(0,10);
+      }
+      const save = document.createElement('button');
+      save.type = 'button'; save.className = 'save-btn'; save.textContent = 'Save';
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.className = 'cancel-btn'; cancel.textContent = 'Cancel';
+
+      // Hide value + edit button, insert editor
+      const valSpan = document.getElementById('val-'+field);
+      const editBtn = cell.querySelector('.edit-btn');
+      valSpan.style.display = 'none';
+      editBtn.style.display = 'none';
+      cell.insertBefore(wrap, editBtn);
+      wrap.appendChild(inp); wrap.appendChild(save); wrap.appendChild(cancel);
+      inp.focus();
+
+      const msg = document.getElementById('msg-'+field);
+      msg.textContent = '';
+
+      save.onclick = async () => {
+        msg.style.color = '#355F60'; msg.textContent = 'Saving…';
+        try {
+          await updateField(field, inp.value);
+          // Reflect new value
+          setText(field, inp.value);
+          msg.style.color = '#0E4B50'; msg.textContent = 'Saved';
+          exitEdit();
+        } catch (e) {
+          console.error(e);
+          msg.style.color = '#B00020'; msg.textContent = e.message || 'Error';
+        }
+      };
+
+      const exitEdit = () => {
+        wrap.remove();
+        valSpan.style.display = '';
+        editBtn.style.display = '';
+      };
+
+      cancel.onclick = exitEdit;
+    }
+
+    async function updateField(field, value){
+      const allowed = ['first_name','last_name','phone','email','dob','address'];
+      if (!allowed.includes(field)) throw new Error('Invalid field');
+      const res = await fetch('/medical_clinic/api/patient_update.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ id, field, value })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update');
+      return true;
+    }
+
+    function render(tbodyId, rows){
+      const tbody = document.getElementById(tbodyId);
+      if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No records</td></tr>`; return; }
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.date || ''}</td>
+          <td>${(r.start_time || '') + (r.end_time ? '–' + r.end_time : '')}</td>
+          <td>${escapeHtml(r.doctor_name || '')}</td>
+          <td>${escapeHtml(r.room || '')}</td>
+          <td>${escapeHtml(r.type || '')}</td>
+          <td><span class="status-badge status-${cssSafe(r.status || '')}">${escapeHtml(r.status || '')}</span></td>
+          <td>${escapeHtml(r.summary || '')}</td>
+        </tr>
+      `).join('');
+    }
+
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+    function cssSafe(s){ return String(s||'').replace(/\s+/g,'-').toLowerCase(); }
+  })();
+</script>
+</body>
+</html>

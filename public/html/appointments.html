@@ -19,6 +19,7 @@
       <nav class="nav">
         <div class="nav-section">
           <div class="nav-title">Appointments</div>
+                  <a class="nav-link" href="./appointments_calendar.html">Calendar</a>
           <a class="nav-link active" href="/medical_clinic/public/html/appointments.html">View</a>
           <a class="nav-link" href="/medical_clinic/public/html/appointment_new.html">Add</a>
         </div>
@@ -157,15 +158,16 @@
   <script>
     (function(){
       const t = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!t) { location.href = './login.html'; return; }
+      if (!t) { location.href = '../../login.html'; return; }
       const btn = document.getElementById('logoutBtn');
       if (btn) btn.addEventListener('click', () => {
         localStorage.removeItem('token'); sessionStorage.removeItem('token');
-        location.href = './login.html';
+        location.href = '../../login.html';
       });
     })();
   </script>
 
-  <script src="/medical_clinic/public/js/appointments.js" defer></script>
+<script src="/medical_clinic/public/js/appointments.js" defer></script>
+
 </body>
 </html>

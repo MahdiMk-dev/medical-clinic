@@ -1,132 +1,122 @@
 (function () {
-  const API_LIST = 'http://localhost/medical_clinic/api/appointments.php';
-  const API_DOCS = 'http://localhost/medical_clinic/api/doctors.php';
-  const API_EDIT = 'http://localhost/medical_clinic/api/appointment_update.php';
+  // --- API endpoints ---
+  const API_BASE   = '/medical_clinic/api';
+  const API_LIST   = `${API_BASE}/appointments.php`;
+  const API_DOCS   = `${API_BASE}/doctors.php`;
+  const API_ROOMS  = `${API_BASE}/rooms.php`;
+  const API_EDIT   = `${API_BASE}/appointment_update.php`;
+  const API_CANCEL = `${API_BASE}/appointment_cancel.php`;
+  const API_STATUS = `${API_BASE}/appointment_status.php`;
 
-  const dateInput = document.getElementById('dateInput');
+  // --- Elements ---
+  const dateInput   = document.getElementById('dateInput');
   const searchInput = document.getElementById('searchInput');
-  const statusSel = document.getElementById('statusFilter');
-  const typeSel = document.getElementById('typeFilter');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const tbody = document.getElementById('apptBody');
-  const table = document.getElementById('apptTable');
+  const statusSel   = document.getElementById('statusFilter');
+  const typeSel     = document.getElementById('typeFilter');
+  const refreshBtn  = document.getElementById('refreshBtn');
+
+  const table   = document.getElementById('apptTable');
+  const tbody   = document.getElementById('apptBody');
   const statusMsg = document.getElementById('statusMsg');
 
-  // Modal elements
-  const modal = document.getElementById('editModal');
-  const editId = document.getElementById('editId');
-  const editDate = document.getElementById('editDate');
-  const editFrom = document.getElementById('editFrom');
-  const editTo = document.getElementById('editTo');
-  const editDoc = document.getElementById('editDoctor');
-  const editRoom = document.getElementById('editRoom');
-  const editSum = document.getElementById('editSummary');
-  const editCom = document.getElementById('editComment');
-  const editMsg = document.getElementById('editMsg');
-  const editClose = document.getElementById('editClose');
+  // Modal
+  const modal      = document.getElementById('editModal');
+  const editForm   = document.getElementById('editForm');
+  const editClose  = document.getElementById('editClose');
   const editCancel = document.getElementById('editCancel');
-  const editForm = document.getElementById('editForm');
+  const editMsg    = document.getElementById('editMsg');
 
-  // Auth gate
+  const editId     = document.getElementById('editId');
+  const editDate   = document.getElementById('editDate');
+  const editFrom   = document.getElementById('editFrom');
+  const editTo     = document.getElementById('editTo');
+  const editDoc    = document.getElementById('editDoctor');
+  const editRoom   = document.getElementById('editRoom');
+  const editSum    = document.getElementById('editSummary');
+  const editCom    = document.getElementById('editComment');
+
+  // --- Auth gate ---
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (!token) { window.location.href = '/medical_clinic/public/html/login.html'; return; }
 
-  // Load and persist date & filters
-  const savedDate = localStorage.getItem('lastAppointmentsDate');
-  const todayStr = new Date().toISOString().slice(0, 10);
-  dateInput.value = savedDate || todayStr;
+  // --- Local caches ---
+  let doctorsCache = [];
+  let roomsCache   = [];
 
-  const savedFilters = JSON.parse(localStorage.getItem('apptFilters') || '{}');
-  if (savedFilters.q) searchInput.value = savedFilters.q;
-  if (savedFilters.status) statusSel.value = savedFilters.status;
-  if (savedFilters.type) typeSel.value = savedFilters.type;
-
-  dateInput.addEventListener('change', () => {
-    localStorage.setItem('lastAppointmentsDate', dateInput.value);
-    load();
-  });
-
-  function saveFilters() {
-    localStorage.setItem('apptFilters', JSON.stringify({
-      q: searchInput.value.trim(),
-      status: statusSel.value,
-      type: typeSel.value
-    }));
+  // --- UI/DB status mapping - DISPLAY ONLY ---
+  // DB -> UI (for display and row color)
+  function dbToUiStatus(dbStatus) {
+    const s = String(dbStatus || '').toLowerCase();
+    if (s === 'rescheduled') return 'checked in';
+    if (s === 'completed')   return 'checked out';
+    return s || 'scheduled';
   }
 
-  searchInput.addEventListener('input', debounce(() => { saveFilters(); load(); }, 300));
-  statusSel.addEventListener('change', () => { saveFilters(); load(); });
-  typeSel.addEventListener('change', () => { saveFilters(); load(); });
-  refreshBtn.addEventListener('click', load);
+  // Actions per UI status (includes the new "Cancel checkout")
+  function statusButtons(uiStatus) {
+    const s = String(uiStatus || '').toLowerCase();
+    if (s === 'scheduled') {
+      return `<button class="btn-link status-checkin" title="Mark as checked in">Check in</button>`;
+    }
+    if (s === 'checked in') {
+      return `
+        <button class="btn-link status-checkout" title="Mark as checked out">Check out</button>
+        <button class="btn-link status-cancel-checkin" title="Revert to scheduled">Cancel check in</button>
+      `;
+    }
+    if (s === 'checked out') {
+      return `
+        <button class="btn-link status-cancel-checkout" title="Revert to checked in">Cancel checkout</button>
+      `;
+    }
+    return ``;
+  }
 
-  // Doctor & room cache
-  let doctorsCache = [];
-  let roomsCache = [];
+  // --- Helpers ---
+  function setLoading(message) {
+    statusMsg.textContent = message || 'Loading…';
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
+  }
+  function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function cssSafe(s) { return String(s||'').trim().replace(/\s+/g, '-').toLowerCase(); }
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
-async function loadDoctors() {
-  try {
-    const res = await fetch(`${API_DOCS}?list=1`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  async function loadDoctors() {
+    const res = await fetch(`${API_DOCS}?list=1`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error('Failed to load doctors');
     const data = await res.json();
-    doctorsCache = data.doctors || [];
-
-    // ✅ use the clean "name" field returned by the API
-    editDoc.innerHTML = doctorsCache.map(d =>
-      `<option value="${d.id}">${escapeHtml(d.name)}</option>`
-    ).join('');
-  } catch (e) {
-    console.error('Error loading doctors:', e);
-    editDoc.innerHTML = `<option value="">(no doctors)</option>`;
+    doctorsCache = data?.doctors || [];
+    editDoc.innerHTML = `<option value="">Select doctor…</option>` + doctorsCache.map(d =>
+      `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
   }
-}
-
-
 
   async function loadRooms() {
-    try {
-      const res = await fetch('http://localhost/medical_clinic/api/rooms.php?list=1', { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Failed to load rooms');
-      const data = await res.json();
-      roomsCache = data.rooms || [];
-      editRoom.innerHTML = roomsCache.map(r => `<option value="${r.id}">${escapeHtml(r.id + ' - ' + r.type)}</option>`).join('');
-    } catch (e) {
-      console.error(e);
-      editRoom.innerHTML = `<option value="">(no rooms)</option>`;
-    }
+    const res = await fetch(`${API_ROOMS}?list=1`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Failed to load rooms');
+    const data = await res.json();
+    roomsCache = data?.rooms || [];
+    editRoom.innerHTML = `<option value="">Select room…</option>` + roomsCache.map(r =>
+      `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
   }
 
-  async function load() {
-    statusMsg.textContent = 'Loading…';
-    tbody.innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
-
+  async function fetchList() {
     const params = new URLSearchParams({
-      date: dateInput.value,
-      q: searchInput.value.trim(),
+      date:   dateInput.value,
+      q:      searchInput.value.trim(),
       status: statusSel.value,
-      type: typeSel.value
+      type:   typeSel.value
     });
-
-    try {
-      const res = await fetch(`${API_LIST}?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (res.status === 401) {
-        statusMsg.textContent = 'Session expired. Please sign in again.';
-        setTimeout(() => (window.location.href = '/medical_clinic/public/html/login.html'), 900);
-        return;
-      }
-
-      const data = await res.json();
-      renderTable(data?.appointments || []);
-      statusMsg.textContent = `${(data?.appointments || []).length} appointment(s) on ${dateInput.value}`;
-    } catch (err) {
-      console.error(err);
-      statusMsg.textContent = 'Failed to load appointments.';
-      tbody.innerHTML = `<tr><td colspan="9" class="empty">Error loading data</td></tr>`;
+    const res = await fetch(`${API_LIST}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.status === 401) {
+      statusMsg.textContent = 'Session expired. Please sign in again.';
+      setTimeout(() => (window.location.href = '/medical_clinic/public/html/login.html'), 900);
+      return [];
     }
+    const data = await res.json().catch(()=>({}));
+    const all  = data?.appointments || [];
+    return all.filter(a => !/^cancelled?$/i.test(String(a.status||'')));
   }
 
   function renderTable(rows) {
@@ -134,53 +124,43 @@ async function loadDoctors() {
       tbody.innerHTML = `<tr><td colspan="9" class="empty">No appointments</td></tr>`;
       return;
     }
-    tbody.innerHTML = rows.map(r => `
-      <tr data-id="${r.id}">
-        <td>${r.from_time}–${r.to_time}</td>
-        <td>${escapeHtml(r.patient_name)}</td>
-        <td>${escapeHtml(r.doctor_name)}</td>
-        <td>${escapeHtml(r.room || '')}</td>
+    tbody.innerHTML = rows.map(r => {
+      const uiStatus = dbToUiStatus(r.status);
+      const rowClass = `status-${cssSafe(uiStatus)}`;
+      return `
+      <tr data-id="${r.id}" class="${rowClass}">
+        <td>${escapeHtml((r.from_time||'') + '–' + (r.to_time||''))}</td>
+        <td>${escapeHtml(r.patient_name || '')}</td>
+        <td>${escapeHtml(r.doctor_name  || '')}</td>
+        <td>${escapeHtml(r.room_name || r.room || '')}</td>
         <td>${escapeHtml(r.type || '')}</td>
-        <td><span class="status-badge status-${cssSafe(r.status)}">${escapeHtml(r.status)}</span></td>
+        <td><span class="status-badge status-${cssSafe(uiStatus)}">${escapeHtml(uiStatus)}</span></td>
         <td>${escapeHtml(r.summary || '')}</td>
         <td>${escapeHtml(r.comment || '')}</td>
-        <td><button class="small-btn js-edit">Edit</button></td>
+<td class="col-actions">
+  <div class="row-actions">
+    ${statusButtons(uiStatus)}
+    <button class="btn-link edit">Edit</button>
+    <button class="btn-link danger cancel">Cancel</button>
+  </div>
+</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+  }
 
-    tbody.querySelectorAll('.js-edit').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const tr = e.target.closest('tr');
-        const id = tr.getAttribute('data-id');
-        await openEdit(id, tr);
-      });
+  // --- Status updates ---
+  async function updateStatus(id, nextUiStatus) {
+    const res = await fetch(API_STATUS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id, status: nextUiStatus })
     });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Status update failed');
   }
 
-  async function openEdit(id, tr) {
-    if (!doctorsCache.length) await loadDoctors();
-    if (!roomsCache.length) await loadRooms();
-
-    const timeText = tr.children[0].textContent.trim();
-    const [from, to] = timeText.split('–');
-    const doctorName = tr.children[2].textContent.trim();
-    const roomNum = tr.children[3].textContent.trim();
-
-    const foundDoc = doctorsCache.find(d => d.name === doctorName);
-    const foundRoom = roomsCache.find(r => String(r.id) === roomNum);
-
-    editId.value = id;
-    editDate.value = dateInput.value;
-    editFrom.value = from || '09:00';
-    editTo.value = to || '09:30';
-    editDoc.value = (foundDoc && foundDoc.id) || '';
-    editRoom.value = (foundRoom && foundRoom.id) || '';
-    editSum.value = tr.children[6].textContent.trim();
-    editCom.value = tr.children[7].textContent.trim();
-    editMsg.textContent = '';
-    showModal(true);
-  }
-
+  // --- Row actions / modal ---
   function showModal(show) {
     if (show) {
       modal.classList.remove('hidden');
@@ -191,50 +171,160 @@ async function loadDoctors() {
     }
   }
 
-  editClose.addEventListener('click', () => showModal(false));
-  editCancel.addEventListener('click', () => showModal(false));
-  modal.querySelector('.modal-backdrop').addEventListener('click', () => showModal(false));
+  async function openEdit(tr) {
+    const id = tr.getAttribute('data-id');
+    if (!id) return;
+
+    if (!doctorsCache.length) await loadDoctors();
+    if (!roomsCache.length)   await loadRooms();
+
+    const timeText   = tr.children[0].textContent.trim();
+    const [from, to] = timeText.split('–');
+    const doctorName = tr.children[2].textContent.trim();
+
+    const roomText   = tr.children[3].textContent.trim();
+    const roomIdMatch = roomText.match(/(\d+)/);
+    const roomNum    = roomIdMatch ? roomIdMatch[1] : roomText;
+
+    const foundDoc  = doctorsCache.find(d => d.name === doctorName);
+    const foundRoom = roomsCache.find(r => String(r.id) === String(roomNum));
+
+    editId.value   = id;
+    editDate.value = dateInput.value;
+    editFrom.value = (from || '').trim() || '09:00';
+    editTo.value   = (to   || '').trim() || '09:30';
+    editDoc.value  = (foundDoc && foundDoc.id) || '';
+    editRoom.value = (foundRoom && foundRoom.id) || '';
+    editSum.value  = tr.children[6].textContent.trim();
+    editCom.value  = tr.children[7].textContent.trim();
+
+    editMsg.textContent = '';
+    showModal(true);
+  }
+
+  async function cancelAppointment(id) {
+    const res = await fetch(API_CANCEL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Cancel failed');
+  }
+
+  async function load() {
+    setLoading('Loading…');
+    const savedDate = localStorage.getItem('lastAppointmentsDate');
+    const todayStr  = new Date().toISOString().slice(0, 10);
+    if (!dateInput.value) dateInput.value = savedDate || todayStr;
+
+    try {
+      if (!doctorsCache.length) await loadDoctors();
+      if (!roomsCache.length)   await loadRooms();
+
+      const rows = await fetchList();
+      renderTable(rows);
+      statusMsg.textContent = `${rows.length} appointment(s) on ${dateInput.value}`;
+    } catch (err) {
+      console.error(err);
+      statusMsg.textContent = 'Failed to load appointments.';
+      tbody.innerHTML = `<tr><td colspan="9" class="empty">Error loading data</td></tr>`;
+    }
+  }
+
+  // --- Events ---
+  function saveFilters() {
+    try { localStorage.setItem('lastAppointmentsDate', dateInput.value); } catch(e){}
+  }
+
+  dateInput.addEventListener('change', () => { saveFilters(); load(); });
+  searchInput.addEventListener('input', debounce(() => load(), 300));
+  statusSel.addEventListener('change', () => load());
+  typeSel.addEventListener('change', () => load());
+  if (refreshBtn) refreshBtn.addEventListener('click', () => load());
+
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    const id = tr.getAttribute('data-id');
+
+    try {
+      if (btn.classList.contains('edit')) {
+        openEdit(tr);
+        return;
+      }
+      if (btn.classList.contains('cancel')) {
+        if (!confirm('Cancel this appointment?')) return;
+        await cancelAppointment(id);
+        return load();
+      }
+      if (btn.classList.contains('status-checkin')) {
+        await updateStatus(id, 'checked in');           // UI intent → server maps to DB 'rescheduled'
+        return load();
+      }
+      if (btn.classList.contains('status-checkout')) {
+        await updateStatus(id, 'checked out');          // UI intent → server maps to DB 'completed'
+        return load();
+      }
+      if (btn.classList.contains('status-cancel-checkin')) {
+        await updateStatus(id, 'scheduled');            // back to scheduled
+        return load();
+      }
+      if (btn.classList.contains('status-cancel-checkout')) {
+        await updateStatus(id, 'checked in');           // checked out -> checked in
+        return load();
+      }
+    } catch (err) {
+      alert('Action failed: ' + (err.message || err));
+    }
+  });
+
+  [editClose, editCancel].forEach(b => b && b.addEventListener('click', () => showModal(false)));
 
   editForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     editMsg.textContent = 'Saving…';
 
     const payload = {
-      id: Number(editId.value),
+      id: editId.value,
       date: editDate.value,
-      from_time: editFrom.value,
-      to_time: editTo.value,
-      doctorId: Number(editDoc.value),
-      roomId: Number(editRoom.value),
-      summary: editSum.value.trim(),
-      comment: editCom.value.trim()
+      from: editFrom.value,
+      to: editTo.value,
+      doctor_id: editDoc.value || null,
+      room_id:   editRoom.value || null,
+      summary:   editSum.value || '',
+      comment:   editCom.value || ''
     };
 
     try {
       const res = await fetch(API_EDIT, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to save');
-
-      editMsg.textContent = 'Saved!';
-      showModal(false);
-      load();
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Update failed');
+      editMsg.textContent = 'Saved.';
+      setTimeout(() => { showModal(false); load(); }, 300);
     } catch (err) {
       console.error(err);
-      editMsg.textContent = err.message || 'Error saving';
+      editMsg.textContent = 'Failed to save changes.';
     }
   });
 
-  function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-  function cssSafe(s) { return String(s).replace(/\s+/g, '-'); }
+  (function init() {
+    const btn = document.getElementById('logoutBtn');
+    if (btn) btn.addEventListener('click', () => {
+      localStorage.removeItem('token'); sessionStorage.removeItem('token');
+      window.location.href = '/medical_clinic/public/html/login.html';
+    });
 
-  load();
+    const savedDate = localStorage.getItem('lastAppointmentsDate');
+    const todayStr  = new Date().toISOString().slice(0, 10);
+    if (!dateInput.value) dateInput.value = savedDate || todayStr;
+
+    load();
+  })();
 })();

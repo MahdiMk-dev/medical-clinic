@@ -23,43 +23,110 @@ if (!$tok) { http_response_code(401); echo json_encode(['error'=>'Missing token'
 try { $claims = jwt_decode($tok, $config['jwt_secret']); }
 catch (Throwable $e) { http_response_code(401); echo json_encode(['error'=>'Invalid token']); exit; }
 
-// --- Input (partial updates allowed) ---
+// --- Input ---
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $id = (int)($input['id'] ?? 0);
 if (!$id) { http_response_code(400); echo json_encode(['error'=>'Missing id']); exit; }
 
-/**
- * If a field is absent or empty, send NULL so COALESCE keeps the current DB value.
- * For strings we treat empty string "" as "keep old" too (set to NULL).
- */
-$date      = (isset($input['date'])      && $input['date']      !== '') ? $input['date']      : null;
-$from_time = (isset($input['from_time']) && $input['from_time'] !== '') ? $input['from_time'] : null;
-$to_time   = (isset($input['to_time'])   && $input['to_time']   !== '') ? $input['to_time']   : null;
-$doctorId  = (isset($input['doctorId'])  && $input['doctorId'])         ? (int)$input['doctorId'] : null;
-$roomId    = (isset($input['roomId'])    && $input['roomId'])           ? (int)$input['roomId']   : null;
-// summary/comment: if key present but "", we keep old (set NULL -> COALESCE keeps column)
-$summary   = array_key_exists('summary', $input) ? (trim($input['summary']) === '' ? null : trim($input['summary'])) : null;
-$comment   = array_key_exists('comment', $input) ? (trim($input['comment']) === '' ? null : trim($input['comment'])) : null;
+// 1) Load current row to compute final candidate values
+$stmt = $mysqli->prepare("SELECT id, doctorId, roomId, `date`, from_time, to_time, status FROM Appointments WHERE id=? LIMIT 1");
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$cur = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-// --- Update with COALESCE to preserve old values when NULL is passed ---
+if (!$cur) { http_response_code(404); echo json_encode(['error'=>'Appointment not found']); exit; }
+
+// 2) Merge inputs (normalize times)
+$normalizeTime = function($t) {
+  if ($t === null || $t === '') return null;
+  if (preg_match('/^\d{2}:\d{2}$/', $t)) return $t . ':00';
+  if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) return $t;
+  return null;
+};
+$cand = [
+  'doctorId'  => isset($input['doctorId'])  && $input['doctorId']  ? (int)$input['doctorId']  : (int)$cur['doctorId'],
+  'roomId'    => isset($input['roomId'])    && $input['roomId']    ? (int)$input['roomId']    : (int)$cur['roomId'],
+  'date'      => isset($input['date'])      && $input['date']      !== '' ? (string)$input['date']      : (string)$cur['date'],
+  'from_time' => array_key_exists('from_time',$input) ? $normalizeTime($input['from_time']) : (string)$cur['from_time'],
+  'to_time'   => array_key_exists('to_time',  $input) ? $normalizeTime($input['to_time'])   : (string)$cur['to_time'],
+  // summary/comment can remain partial/optional
+  'summary'   => array_key_exists('summary',$input) ? (trim((string)$input['summary']) ?: null) : null,
+  'comment'   => array_key_exists('comment',$input) ? (trim((string)$input['comment']) ?: null) : null,
+];
+
+// 3) Validate formats
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $cand['date'])) {
+  http_response_code(400); echo json_encode(['error'=>'Invalid date format (YYYY-MM-DD)']); exit;
+}
+if (!preg_match('/^\d{2}:\d{2}:\d{2}$/', $cand['from_time'])) {
+  http_response_code(400); echo json_encode(['error'=>'Invalid from_time (HH:MM or HH:MM:SS)']); exit;
+}
+if (!preg_match('/^\d{2}:\d{2}:\d{2}$/', $cand['to_time'])) {
+  http_response_code(400); echo json_encode(['error'=>'Invalid to_time (HH:MM or HH:MM:SS)']); exit;
+}
+
+// 4) Ensure order
+if (strcmp($cand['from_time'], $cand['to_time']) >= 0) {
+  http_response_code(400); echo json_encode(['error'=>'from_time must be earlier than to_time']); exit;
+}
+
+// 5) Overlap checks (exclude this id; ignore canceled)
+// Overlap checks (exclude this id; ignore canceled)
+$overlapCheck = function($col, $val) use ($mysqli, $cand, $id) {
+  $sql = "
+    SELECT id FROM Appointments
+    WHERE `$col` = ?
+      AND `date` = ?
+      AND status <> 'canceled'
+      AND id <> ?
+      AND TIMESTAMP(?, ?) < TIMESTAMP(`date`, `to_time`)
+      AND TIMESTAMP(?, ?) > TIMESTAMP(`date`, `from_time`)
+    LIMIT 1
+  ";
+  $stmt = $mysqli->prepare($sql);
+  // types: i s i s s s s
+  $stmt->bind_param(
+    'isissss',
+    $val,
+    $cand['date'],
+    $id,
+    $cand['date'], $cand['to_time'],
+    $cand['date'], $cand['from_time']
+  );
+  $stmt->execute();
+  $exists = (bool)$stmt->get_result()->fetch_assoc();
+  $stmt->close();
+  return $exists;
+};
+if ($overlapCheck('doctorId', (int)$cand['doctorId'])) { http_response_code(409); echo json_encode(['error'=>'Time conflict: doctor already booked for this slot.']); exit; }
+if ($overlapCheck('roomID',   (int)$cand['roomId']))   { http_response_code(409); echo json_encode(['error'=>'Time conflict: room already booked for this slot.']); exit; }
+
+
+// 6) Perform update (COALESCE keeps old values when NULL passed)
+// Also bump updatedAt
 $stmt = $mysqli->prepare("
   UPDATE Appointments
-     SET doctorId  = COALESCE(?, doctorId),
-         roomId    = COALESCE(?, roomId),
-         date      = COALESCE(?, date),
-         from_time = COALESCE(?, from_time),
-         to_time   = COALESCE(?, to_time),
+     SET doctorId  = ?,
+         roomId    = ?,
+         date      = ?,
+         from_time = ?,
+         to_time   = ?,
          summary   = COALESCE(?, summary),
-         comment   = COALESCE(?, comment)
+         comment   = COALESCE(?, comment),
+         updatedAt = NOW()
    WHERE id = ?
 ");
-/**
- * types: i (doctorId) + i (roomId) + s (date) + s (from_time) + s (to_time) + s (summary) + s (comment) + i (id)
- * => "iisssssi"
- */
 $stmt->bind_param(
   'iisssssi',
-  $doctorId, $roomId, $date, $from_time, $to_time, $summary, $comment, $id
+  $cand['doctorId'],
+  $cand['roomId'],
+  $cand['date'],
+  $cand['from_time'],
+  $cand['to_time'],
+  $cand['summary'],
+  $cand['comment'],
+  $id
 );
 $stmt->execute();
 $aff = $stmt->affected_rows;
