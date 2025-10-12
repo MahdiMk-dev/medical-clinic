@@ -305,10 +305,14 @@ const payload = {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Update failed');
-      editMsg.textContent = 'Saved.';
-      setTimeout(() => { showModal(false); load(); }, 300);
+const data = await res.json().catch(()=>({}));
+if (!res.ok || data.ok !== true) {
+  editMsg.textContent = data.error || 'Update failed';
+  return; // stop here on conflict/validation errors
+}
+editMsg.textContent = 'Saved.';
+setTimeout(() => { showModal(false); load(); }, 300);
+
     } catch (err) {
       console.error(err);
       editMsg.textContent = 'Failed to save changes.';

@@ -5,6 +5,7 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 header('Content-Type: application/json');
 
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 require_once __DIR__ . '/../src/db.php';
 require_once __DIR__ . '/../src/jwt.php';
 
@@ -19,91 +20,98 @@ function bearer() {
   return null;
 }
 $tok = bearer();
-if (!$tok) { http_response_code(401); echo json_encode(['error'=>'Missing token']); exit; }
+if (!$tok) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'Missing token']); exit; }
 try { $claims = jwt_decode($tok, $config['jwt_secret']); }
-catch (Throwable $e) { http_response_code(401); echo json_encode(['error'=>'Invalid token']); exit; }
+catch (Throwable $e) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'Invalid token']); exit; }
 
 // --- Input ---
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $id = (int)($input['id'] ?? 0);
-if (!$id) { http_response_code(400); echo json_encode(['error'=>'Missing id']); exit; }
+if ($id <= 0) { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'Missing id']); exit; }
 
-// 1) Load current row to compute final candidate values
+// Load current row
 $stmt = $mysqli->prepare("SELECT id, doctorId, roomID, patientID, `date`, from_time, to_time, status FROM Appointments WHERE id=? LIMIT 1");
 $stmt->bind_param('i', $id);
 $stmt->execute();
 $cur = $stmt->get_result()->fetch_assoc();
 $stmt->close();
+if (!$cur) { http_response_code(404); echo json_encode(['ok'=>false,'error'=>'Appointment not found']); exit; }
 
-if (!$cur) { http_response_code(404); echo json_encode(['error'=>'Appointment not found']); exit; }
-
-// 2) Merge inputs (normalize times)
+// Helpers
 $normalizeTime = function($t) {
   if ($t === null || $t === '') return null;
   if (preg_match('/^\d{2}:\d{2}$/', $t)) return $t . ':00';
   if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $t)) return $t;
-  return null;
+  return null; // invalid -> caught by validator
 };
+
+// Accept camelCase/snake_case AND from/to aliases
+$doctorId  = isset($input['doctorId'])  ? (int)$input['doctorId']  : (int)($input['doctor_id']  ?? 0);
+$roomId    = isset($input['roomId'])    ? (int)$input['roomId']    : (int)($input['room_id']    ?? 0);
+$patientId = isset($input['patientId']) ? (int)$input['patientId'] : (int)($input['patient_id'] ?? 0);
+
+$date      = (string)($input['date'] ?? '');
+$fromRaw   = $input['from_time'] ?? $input['from'] ?? null;
+$toRaw     = $input['to_time']   ?? $input['to']   ?? null;
+
+$from_time = array_key_exists('from_time',$input) || array_key_exists('from',$input)
+  ? $normalizeTime((string)$fromRaw) : null;
+$to_time   = array_key_exists('to_time',$input) || array_key_exists('to',$input)
+  ? $normalizeTime((string)$toRaw)   : null;
+
+$summary   = array_key_exists('summary',$input) ? (trim((string)$input['summary']) ?: null) : null;
+$comment   = array_key_exists('comment',$input) ? (trim((string)$input['comment']) ?: null) : null;
+
+// Merge with current values
 $cand = [
-  'doctorId'  => isset($input['doctorId'])  && $input['doctorId']  ? (int)$input['doctorId']  : (int)$cur['doctorId'],
-  'roomId'    => isset($input['roomId'])    && $input['roomId']    ? (int)$input['roomId']    : (int)$cur['roomID'],
-  'patientId' => isset($input['patientId']) && $input['patientId'] ? (int)$input['patientId'] : (int)$cur['patientID'],
-  'date'      => isset($input['date'])      && $input['date']      !== '' ? (string)$input['date']      : (string)$cur['date'],
-  'from_time' => array_key_exists('from_time',$input) ? $normalizeTime($input['from_time']) : (string)$cur['from_time'],
-  'to_time'   => array_key_exists('to_time',  $input) ? $normalizeTime($input['to_time'])   : (string)$cur['to_time'],
-  // summary/comment can remain partial/optional
-  'summary'   => array_key_exists('summary',$input) ? (trim((string)$input['summary']) ?: null) : null,
-  'comment'   => array_key_exists('comment',$input) ? (trim((string)$input['comment']) ?: null) : null,
+  'doctorId'  => $doctorId  ?: (int)$cur['doctorId'],
+  'roomId'    => $roomId    ?: (int)$cur['roomID'],
+  'patientId' => $patientId ?: (int)$cur['patientID'],
+  'date'      => $date      !== '' ? $date : (string)$cur['date'],
+  'from_time' => $from_time !== null ? $from_time : (string)$cur['from_time'],
+  'to_time'   => $to_time   !== null ? $to_time   : (string)$cur['to_time'],
+  'summary'   => $summary,
+  'comment'   => $comment,
 ];
 
-// 3) Validate formats
+// Validate
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $cand['date'])) {
-  http_response_code(400); echo json_encode(['error'=>'Invalid date format (YYYY-MM-DD)']); exit;
+  http_response_code(400); echo json_encode(['ok'=>false,'error'=>'Invalid date format (YYYY-MM-DD)']); exit;
 }
 if (!preg_match('/^\d{2}:\d{2}:\d{2}$/', $cand['from_time'])) {
-  http_response_code(400); echo json_encode(['error'=>'Invalid from_time (HH:MM or HH:MM:SS)']); exit;
+  http_response_code(400); echo json_encode(['ok'=>false,'error'=>'Invalid from_time (HH:MM or HH:MM:SS)']); exit;
 }
 if (!preg_match('/^\d{2}:\d{2}:\d{2}$/', $cand['to_time'])) {
-  http_response_code(400); echo json_encode(['error'=>'Invalid to_time (HH:MM or HH:MM:SS)']); exit;
+  http_response_code(400); echo json_encode(['ok'=>false,'error'=>'Invalid to_time (HH:MM or HH:MM:SS)']); exit;
 }
-
-// 4) Ensure order
 if (strcmp($cand['from_time'], $cand['to_time']) >= 0) {
-  http_response_code(400); echo json_encode(['error'=>'from_time must be earlier than to_time']); exit;
+  http_response_code(400); echo json_encode(['ok'=>false,'error'=>'from_time must be earlier than to_time']); exit;
 }
 
-// 5) Overlap checks (exclude this id; ignore canceled; back-to-back OK)
-$overlapCheck = function($col, $val) use ($mysqli, $cand, $id) {
+// Overlap check (doctor OR room OR patient), exclude current row; back-to-back is OK
+$conflict = function($col, $val) use ($mysqli, $cand, $id) {
   $sql = "
     SELECT id FROM Appointments
     WHERE `$col` = ?
       AND `date` = ?
       AND LOWER(status) <> 'canceled'
       AND id <> ?
-      AND TIMESTAMP(?, ?) < TIMESTAMP(`date`, `to_time`)
-      AND TIMESTAMP(?, ?) > TIMESTAMP(`date`, `from_time`)
+      AND NOT ( ? <= from_time OR ? >= to_time )
     LIMIT 1
   ";
   $stmt = $mysqli->prepare($sql);
-  // types: i s i s s s s
-  $stmt->bind_param(
-    'isissss',
-    $val,
-    $cand['date'],
-    $id,
-    $cand['date'], $cand['to_time'],
-    $cand['date'], $cand['from_time']
-  );
+  $stmt->bind_param('isiss', $val, $cand['date'], $id, $cand['to_time'], $cand['from_time']);
   $stmt->execute();
-  $exists = (bool)$stmt->get_result()->fetch_assoc();
+  $hit = (bool)$stmt->get_result()->fetch_assoc();
   $stmt->close();
-  return $exists;
+  return $hit;
 };
-if ($overlapCheck('doctorId',  (int)$cand['doctorId'])) { http_response_code(409); echo json_encode(['error'=>'Time conflict: doctor already booked for this slot.']); exit; }
-if ($overlapCheck('roomID',    (int)$cand['roomId']))   { http_response_code(409); echo json_encode(['error'=>'Time conflict: room already booked for this slot.']); exit; }
-if ($overlapCheck('patientID', (int)$cand['patientId'])){ http_response_code(409); echo json_encode(['error'=>'Time conflict: patient already booked for this slot.']); exit; }
 
-// 6) Perform update (COALESCE keeps old values when NULL passed)
+if ($conflict('doctorId',  (int)$cand['doctorId']))  { http_response_code(409); echo json_encode(['ok'=>false,'error'=>'Time conflict: doctor already booked for this slot.']);  exit; }
+if ($conflict('roomID',    (int)$cand['roomId']))    { http_response_code(409); echo json_encode(['ok'=>false,'error'=>'Time conflict: room already booked for this slot.']);    exit; }
+if ($conflict('patientID', (int)$cand['patientId'])) { http_response_code(409); echo json_encode(['ok'=>false,'error'=>'Time conflict: patient already booked for this slot.']); exit; }
+
+// Update
 $stmt = $mysqli->prepare("
   UPDATE Appointments
      SET doctorId  = ?,

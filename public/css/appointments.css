@@ -401,3 +401,113 @@ tr.status-checked-out:hover { filter: brightness(0.98); }
     grid-template-columns: 1fr;
   }
 }
+/* Toasts must float above FullCalendar and sticky UI */
+#toast-root { 
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  gap: 8px;
+  z-index: 2147483647; /* max it out */
+  pointer-events: none; /* clicks pass through unless overridden per toast */
+}
+
+.error-toast, .ok-toast {
+  pointer-events: auto;
+  z-index: 2147483647; /* belt & suspenders */
+}
+/* Make the main area take the viewport height */
+.calendar-main { min-height: 100vh; }
+
+/* Let the content area stretch and allow its child to fill */
+.calendar-content {
+  min-height: 0;             /* important for nested grids */
+  display: flex;
+  flex-direction: column;
+}
+
+/* The white “card” should grow and give its child a real height */
+.calendar-shell {
+  flex: 1;                   /* fill remaining vertical space */
+  display: flex;             /* so #calendar can flex */
+  min-height: calc(100vh - 160px); /* header + paddings safety; tweak if needed */
+}
+
+/* The actual FullCalendar mount point must be allowed to grow */
+#calendar {
+  flex: 1;                   /* fill .calendar-shell */
+  min-height: 600px;         /* fallback for short viewports */
+}
+
+/* (Keep your existing white background overrides) */
+#calendar .fc-event .fc-event-main-custom {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+#calendar .fc-ev-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+  font-weight: 600;
+}
+#calendar .fc-ev-time { }
+#calendar .fc-ev-room { opacity: .9; }
+#calendar .fc-ev-dot { opacity: .5; }
+#calendar .fc-ev-patient { }
+#calendar .fc-ev-doctor  { opacity: .9; }
+/* Let event content wrap and breathe */
+#calendar .fc-event .fc-event-main {
+  white-space: normal;
+}
+
+/* Slightly larger, more legible event body */
+#calendar .fc-event .fc-event-main-custom {
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 2px 0;
+}
+
+/* Make time-grid events a bit taller by default */
+#calendar .fc .fc-timegrid-event {
+  min-height: 48px;           /* was ~28–32px */
+  padding: 4px 6px;
+}
+
+/* Increase each time slot’s row height a touch (global) */
+#calendar .fc .fc-timegrid-slot {
+  height: 28px;               /* tweak 24–32px to taste */
+}
+/* Make each 15-min row taller */
+#calendar .fc .fc-timegrid-slot {
+  height: 32px;              /* try 28–40px; 32px works well */
+}
+
+/* Keep the label row aligned with lane height */
+#calendar .fc .fc-timegrid-slot-label {
+  height: 32px;              /* same as .fc-timegrid-slot */
+  line-height: 32px;
+}
+
+/* Ensure the lane (where events sit) matches height too */
+#calendar .fc .fc-timegrid-slot-lane {
+  height: 32px;
+}
+
+/* Give events a bit more room inside each slot */
+#calendar .fc .fc-timegrid-event {
+  min-height: 48px;          /* increase if your tiles still feel cramped */
+  padding: 4px 6px;
+}
+
+/* Let event text wrap (so more lines are visible) */
+#calendar .fc-event .fc-event-main {
+  white-space: normal;
+}
+#calendar .fc-event .fc-event-main-custom {
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 2px 0;
+}
