@@ -83,34 +83,34 @@ try {
     }
   }
 
-  // Overlap rule: new.from < existing.to AND new.to > existing.from, same date, same doctor/room, excluding canceled
-// Overlap rule (back-to-back is OK):
-// new_start < existing_end  AND  new_end > existing_start
-// Compare as full timestamps to avoid TIME vs DATETIME mismatches.
-$overlapCheck = function($col, $val) use ($mysqli, $date, $from_time, $to_time) {
-  $sql = "
-    SELECT id FROM Appointments
-    WHERE `$col` = ?
-      AND `date` = ?
-      AND status <> 'canceled'
-      AND TIMESTAMP(?, ?) < TIMESTAMP(`date`, `to_time`)
-      AND TIMESTAMP(?, ?) > TIMESTAMP(`date`, `from_time`)
-    LIMIT 1
-  ";
-  $stmt = $mysqli->prepare($sql);
-  // types: i s s s s s  => (int col, date, date, to_time, date, from_time)
-  $stmt->bind_param('isssss', $val, $date, $date, $to_time, $date, $from_time);
-  $stmt->execute();
-  $exists = (bool)$stmt->get_result()->fetch_assoc();
-  $stmt->close();
-  return $exists;
-};
+  // Overlap rule (back-to-back is OK):
+  // new_start < existing_end  AND  new_end > existing_start
+  // Compare as full timestamps to avoid TIME vs DATETIME mismatches.
+  $overlapCheck = function($col, $val) use ($mysqli, $date, $from_time, $to_time) {
+    $sql = "
+      SELECT id FROM Appointments
+      WHERE `$col` = ?
+        AND `date` = ?
+        AND LOWER(status) <> 'canceled'
+        AND TIMESTAMP(?, ?) < TIMESTAMP(`date`, `to_time`)
+        AND TIMESTAMP(?, ?) > TIMESTAMP(`date`, `from_time`)
+      LIMIT 1
+    ";
+    $stmt = $mysqli->prepare($sql);
+    // types: i s s s s s  => (int col, date, date, to_time, date, from_time)
+    $stmt->bind_param('isssss', $val, $date, $date, $to_time, $date, $from_time);
+    $stmt->execute();
+    $exists = (bool)$stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $exists;
+  };
 
   if ($overlapCheck('doctorId', $doctorId)) { http_response_code(409); echo json_encode(['error'=>'Time conflict: doctor already booked for this slot.']); exit; }
   if ($overlapCheck('roomID',   $roomId))   { http_response_code(409); echo json_encode(['error'=>'Time conflict: room already booked for this slot.']); exit; }
+  if ($overlapCheck('patientID',$patientId)){ http_response_code(409); echo json_encode(['error'=>'Time conflict: patient already booked for this slot.']); exit; }
 
   // Insert
-  $status    = 'scheduled';
+  $status    = 'scheduled'; // DB enum values: scheduled/completed/no-show/rescheduled/canceled
   $createdBy = (int)($auth['sub'] ?? 0);
   $editBy    = $createdBy;
 

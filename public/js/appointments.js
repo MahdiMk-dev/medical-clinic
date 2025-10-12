@@ -287,16 +287,17 @@
     e.preventDefault();
     editMsg.textContent = 'Saving…';
 
-    const payload = {
-      id: editId.value,
-      date: editDate.value,
-      from: editFrom.value,
-      to: editTo.value,
-      doctor_id: editDoc.value || null,
-      room_id:   editRoom.value || null,
-      summary:   editSum.value || '',
-      comment:   editCom.value || ''
-    };
+const payload = {
+  id: editId.value,
+  date: editDate.value,
+  from: editFrom.value,
+  to: editTo.value,
+  doctorId: Number(editDoc.value) || null,
+  roomId:   Number(editRoom.value) || null,
+  summary:  editSum.value || '',
+  comment:  editCom.value || ''
+};
+
 
     try {
       const res = await fetch(API_EDIT, {

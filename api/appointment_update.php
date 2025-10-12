@@ -29,7 +29,7 @@ $id = (int)($input['id'] ?? 0);
 if (!$id) { http_response_code(400); echo json_encode(['error'=>'Missing id']); exit; }
 
 // 1) Load current row to compute final candidate values
-$stmt = $mysqli->prepare("SELECT id, doctorId, roomId, `date`, from_time, to_time, status FROM Appointments WHERE id=? LIMIT 1");
+$stmt = $mysqli->prepare("SELECT id, doctorId, roomID, patientID, `date`, from_time, to_time, status FROM Appointments WHERE id=? LIMIT 1");
 $stmt->bind_param('i', $id);
 $stmt->execute();
 $cur = $stmt->get_result()->fetch_assoc();
@@ -46,7 +46,8 @@ $normalizeTime = function($t) {
 };
 $cand = [
   'doctorId'  => isset($input['doctorId'])  && $input['doctorId']  ? (int)$input['doctorId']  : (int)$cur['doctorId'],
-  'roomId'    => isset($input['roomId'])    && $input['roomId']    ? (int)$input['roomId']    : (int)$cur['roomId'],
+  'roomId'    => isset($input['roomId'])    && $input['roomId']    ? (int)$input['roomId']    : (int)$cur['roomID'],
+  'patientId' => isset($input['patientId']) && $input['patientId'] ? (int)$input['patientId'] : (int)$cur['patientID'],
   'date'      => isset($input['date'])      && $input['date']      !== '' ? (string)$input['date']      : (string)$cur['date'],
   'from_time' => array_key_exists('from_time',$input) ? $normalizeTime($input['from_time']) : (string)$cur['from_time'],
   'to_time'   => array_key_exists('to_time',  $input) ? $normalizeTime($input['to_time'])   : (string)$cur['to_time'],
@@ -71,14 +72,13 @@ if (strcmp($cand['from_time'], $cand['to_time']) >= 0) {
   http_response_code(400); echo json_encode(['error'=>'from_time must be earlier than to_time']); exit;
 }
 
-// 5) Overlap checks (exclude this id; ignore canceled)
-// Overlap checks (exclude this id; ignore canceled)
+// 5) Overlap checks (exclude this id; ignore canceled; back-to-back OK)
 $overlapCheck = function($col, $val) use ($mysqli, $cand, $id) {
   $sql = "
     SELECT id FROM Appointments
     WHERE `$col` = ?
       AND `date` = ?
-      AND status <> 'canceled'
+      AND LOWER(status) <> 'canceled'
       AND id <> ?
       AND TIMESTAMP(?, ?) < TIMESTAMP(`date`, `to_time`)
       AND TIMESTAMP(?, ?) > TIMESTAMP(`date`, `from_time`)
@@ -99,17 +99,17 @@ $overlapCheck = function($col, $val) use ($mysqli, $cand, $id) {
   $stmt->close();
   return $exists;
 };
-if ($overlapCheck('doctorId', (int)$cand['doctorId'])) { http_response_code(409); echo json_encode(['error'=>'Time conflict: doctor already booked for this slot.']); exit; }
-if ($overlapCheck('roomID',   (int)$cand['roomId']))   { http_response_code(409); echo json_encode(['error'=>'Time conflict: room already booked for this slot.']); exit; }
-
+if ($overlapCheck('doctorId',  (int)$cand['doctorId'])) { http_response_code(409); echo json_encode(['error'=>'Time conflict: doctor already booked for this slot.']); exit; }
+if ($overlapCheck('roomID',    (int)$cand['roomId']))   { http_response_code(409); echo json_encode(['error'=>'Time conflict: room already booked for this slot.']); exit; }
+if ($overlapCheck('patientID', (int)$cand['patientId'])){ http_response_code(409); echo json_encode(['error'=>'Time conflict: patient already booked for this slot.']); exit; }
 
 // 6) Perform update (COALESCE keeps old values when NULL passed)
-// Also bump updatedAt
 $stmt = $mysqli->prepare("
   UPDATE Appointments
      SET doctorId  = ?,
-         roomId    = ?,
-         date      = ?,
+         roomID    = ?,
+         patientID = ?,
+         `date`    = ?,
          from_time = ?,
          to_time   = ?,
          summary   = COALESCE(?, summary),
@@ -118,9 +118,10 @@ $stmt = $mysqli->prepare("
    WHERE id = ?
 ");
 $stmt->bind_param(
-  'iisssssi',
+  'iiisssssi',
   $cand['doctorId'],
   $cand['roomId'],
+  $cand['patientId'],
   $cand['date'],
   $cand['from_time'],
   $cand['to_time'],

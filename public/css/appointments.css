@@ -377,3 +377,27 @@ tr.status-checked-in  td, tr.status-checked-out td { position: relative; }
 tr.status-checked-in:hover  { filter: brightness(0.98); }
 tr.status-checked-out:hover { filter: brightness(0.98); }
 
+/* Actions column only */
+.col-actions .row-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr)); /* 2 columns */
+  gap: 8px;
+  align-items: stretch;
+}
+
+.col-actions .btn-link {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;                 /* full-width within its grid cell */
+  padding: 8px 12px;
+  line-height: 1.1;
+  white-space: normal;         /* allow 2-line labels if needed */
+}
+
+/* collapse to one column on small widths */
+@media (max-width: 700px) {
+  .col-actions .row-actions {
+    grid-template-columns: 1fr;
+  }
+}
