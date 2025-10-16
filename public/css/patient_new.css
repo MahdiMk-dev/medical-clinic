@@ -1,0 +1,117 @@
+/* ========== New Patient page (layout + form alignment) ========== */
+
+/* Card look (if not already in your global CSS) */
+.card {
+  background: #fff;
+  border: 1px solid #e6e8ef;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(18,31,53,0.06);
+}
+
+/* Make the form breathe a bit */
+.card-form {
+  display: grid;
+  gap: 16px;
+}
+
+/* Responsive 3-column grid that auto-fits neatly */
+.grid-3 {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Align each label as a tidy vertical stack */
+.grid-3 > label {
+  display: grid;
+  grid-template-rows: auto 40px;      /* label row + input row (consistent height) */
+  gap: 6px;
+  margin: 0;                          /* remove default label margin if any */
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Inputs occupy full width and consistent height */
+.grid-3 > label > input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #E6F3F2;
+  border-radius: 8px;
+  outline: none;
+  background: #fbffff;
+  font-size: 14px;
+  font-weight: 400;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.grid-3 > label > input:focus {
+  border-color: #2C9AB7;
+  box-shadow: 0 0 0 3px rgba(44,154,183,0.15);
+}
+
+/* Form actions aligned to the right, with spacing */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.form-msg {
+  margin-right: auto;                 /* keeps message on the left, buttons on the right */
+  color: #355F60;
+  font-weight: 600;
+}
+
+/* Buttons — match BrightCare palette */
+.btn-primary,
+.btn-secondary {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #2C9AB7;
+  color: #fff;
+  border-color: #2C9AB7;
+}
+.btn-primary:hover {
+  background: #238AA4;
+  border-color: #238AA4;
+}
+.btn-primary:focus {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(44,154,183,0.35);
+}
+
+.btn-secondary {
+  background: #F0FAFB;
+  color: #0E4B50;
+  border-color: #CFEAEC;
+}
+.btn-secondary:hover {
+  background: #E8F6F8;
+  border-color: #B9E1E5;
+}
+.btn-secondary:focus {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(44,154,183,0.25);
+}

@@ -14,13 +14,15 @@ $auth = require_auth();
 $list = isset($_GET['list']);
 $q    = trim($_GET['q'] ?? '');
 
+// ...header/auth stays the same...
+
 if ($list) {
   // Searchable list mode for dropdowns (supports ID or text)
   if ($q !== '') {
     $isNum = ctype_digit($q);
     if ($isNum) {
       $stmt = $mysqli->prepare("
-        SELECT id, CONCAT(first_name, ' ', last_name) AS name
+        SELECT id, CONCAT(first_name, ' ', last_name) AS name, phone
         FROM Patients
         WHERE id = ?
         ORDER BY last_name, first_name
@@ -31,7 +33,7 @@ if ($list) {
     } else {
       $like = "%$q%";
       $stmt = $mysqli->prepare("
-        SELECT id, CONCAT(first_name, ' ', last_name) AS name
+        SELECT id, CONCAT(first_name, ' ', last_name) AS name, phone
         FROM Patients
         WHERE first_name LIKE ? OR last_name LIKE ?
            OR CONCAT(first_name, ' ', last_name) LIKE ?
@@ -49,7 +51,7 @@ if ($list) {
     echo json_encode(['patients' => $out]);
     exit;
   } else {
-    $sql = "SELECT id, CONCAT(first_name, ' ', last_name) AS name
+    $sql = "SELECT id, CONCAT(first_name, ' ', last_name) AS name, phone
             FROM Patients
             ORDER BY last_name, first_name
             LIMIT 50";
@@ -60,6 +62,7 @@ if ($list) {
     exit;
   }
 }
+
 
 /* Full listing (unchanged) */
 $qfull = $q;
