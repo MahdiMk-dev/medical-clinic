@@ -22,6 +22,7 @@ try {
     return '';
   };
 
+  $id           = (int)($input['id'] ?? 0);
   $fName        = trim((string)$pull(['fName', 'first_name', 'firstName']));
   $lName        = trim((string)$pull(['lName', 'last_name', 'lastName']));
   $mName        = trim((string)$pull(['mName', 'middle_name', 'middleName']));
@@ -29,33 +30,45 @@ try {
   $phone        = trim((string)$pull(['phone', 'phone_number', 'mobile']));
 
   $missing = [];
+  if ($id <= 0)    $missing[] = 'id';
   if ($fName === '') $missing[] = 'fName';
   if ($lName === '') $missing[] = 'lName';
 
   if ($missing) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing required fields', 'missing' => $missing]);
+    http_response_code(422);
+    echo json_encode(['ok' => false, 'error' => 'Missing required fields', 'missing' => $missing]);
     exit;
   }
 
-  $createdBy = (int)($auth['sub'] ?? 0);
+  // Ensure doctor exists
+  $check = $mysqli->prepare("SELECT id FROM Doctors WHERE id=? LIMIT 1");
+  $check->bind_param('i', $id);
+  $check->execute();
+  $exists = (bool)$check->get_result()->fetch_assoc();
+  $check->close();
+  if (!$exists) {
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'Doctor not found']);
+    exit;
+  }
 
-  // ✅ Use createdBy for both createdBy and editBy
-  $sql = "INSERT INTO `Doctors`
-          (`fName`, `lName`, `mName`, `SyndicateNum`, `phone`, `createdBy`, `editBy`, `createdAt`, `updatedAt`)
-          VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
-
-  $stmt = $mysqli->prepare($sql);
-  $stmt->bind_param('sssssii', $fName, $lName, $mName, $SyndicateNum, $phone, $createdBy, $createdBy);
+  $editBy = (int)($auth['sub'] ?? 0);
+  $stmt = $mysqli->prepare("
+    UPDATE `Doctors`
+       SET `fName` = ?, `lName` = ?, `mName` = ?, `SyndicateNum` = ?, `phone` = ?,
+           `editBy` = ?, `updatedAt` = NOW()
+     WHERE `id` = ?
+     LIMIT 1
+  ");
+  $stmt->bind_param('sssssii', $fName, $lName, $mName, $SyndicateNum, $phone, $editBy, $id);
   $stmt->execute();
-
-  echo json_encode(['ok' => true, 'id' => $stmt->insert_id]);
   $stmt->close();
 
+  echo json_encode(['ok' => true]);
 } catch (mysqli_sql_exception $e) {
   http_response_code(500);
-  echo json_encode(['error' => 'SQL error', 'detail' => $e->getMessage()]);
+  echo json_encode(['ok' => false, 'error' => 'SQL error', 'detail' => $e->getMessage()]);
 } catch (Throwable $e) {
   http_response_code(500);
-  echo json_encode(['error' => 'Server error', 'detail' => $e->getMessage()]);
+  echo json_encode(['ok' => false, 'error' => 'Server error', 'detail' => $e->getMessage()]);
 }

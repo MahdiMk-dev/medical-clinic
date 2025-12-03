@@ -11,6 +11,9 @@ require_once __DIR__ . '/../src/auth_mw.php';
 
 $auth = require_auth();
 
+// Auto-mark past scheduled appointments as no-show
+$mysqli->query("UPDATE Appointments SET status='no-show' WHERE LOWER(status)='scheduled' AND `date` < CURDATE()");
+
 /**
  * Filters
  *  - date   (YYYY-MM-DD)  defaults to today
@@ -61,11 +64,12 @@ SELECT
   a.id,
   DATE_FORMAT(a.from_time, '%H:%i') AS from_time,
   DATE_FORMAT(a.to_time,   '%H:%i') AS to_time,
-  CONCAT(DATE_FORMAT(a.from_time, '%H:%i'), '–', DATE_FORMAT(a.to_time, '%H:%i')) AS time,
+  CONCAT(DATE_FORMAT(a.from_time, '%H:%i'), '-', DATE_FORMAT(a.to_time, '%H:%i')) AS time,
+  p.id AS patient_id,
   CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
   CONCAT(d.fName, ' ', d.lName) AS doctor_name,
   r.id AS room,
-  CONCAT('Room ', r.id, ' — ', COALESCE(r.type, 'General')) AS room_name,
+  CONCAT('Room ', r.id, ' - ', COALESCE(r.type, 'General')) AS room_name,
   a.type,
   a.status,
   a.comment,

@@ -10,6 +10,9 @@ require_once __DIR__ . '/../src/auth_mw.php';
 
 $auth = require_auth(); // ensures JWT is valid
 
+// Auto-mark past scheduled appointments as no-show
+$mysqli->query("UPDATE Appointments SET status='no-show' WHERE LOWER(status)='scheduled' AND `date` < CURDATE()");
+
 // FullCalendar provides `start` and `end` as ISO strings
 $start = $_GET['start'] ?? '';
 $end   = $_GET['end']   ?? '';

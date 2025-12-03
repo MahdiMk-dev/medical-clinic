@@ -20,6 +20,7 @@ try {
   // Patient demographics
   $stmt = $mysqli->prepare("
     SELECT id, first_name, last_name, phone, email, address, dob,
+           medical_history, surgical_history, allergies,
            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
     FROM Patients
     WHERE id = ?
@@ -40,12 +41,20 @@ try {
       a.date,
       DATE_FORMAT(a.from_time, '%H:%i') AS start_time,
       DATE_FORMAT(a.to_time,   '%H:%i') AS end_time,
+      a.doctorId,
+      a.roomID,
       CONCAT('Dr. ', d.fName, ' ', d.lName) AS doctor_name,
       CONCAT('Room ', r.id, IF(r.type IS NULL OR r.type='', '', CONCAT(' — ', r.type))) AS room,
       a.type,
       a.status,
       a.summary,
-      a.comment
+      a.comment,
+      a.vitals_bp,
+      a.vitals_hr,
+      a.vitals_temp,
+      a.vitals_rr,
+      a.vitals_spo2,
+      a.vitals_notes
     FROM Appointments a
     JOIN Doctors d ON d.id = a.doctorId
     LEFT JOIN Rooms r ON r.id = a.roomID

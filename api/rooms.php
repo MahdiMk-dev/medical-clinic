@@ -6,6 +6,8 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 require_once __DIR__ . '/../src/db.php';
 require_once __DIR__ . '/../src/auth_mw.php';
 
@@ -14,12 +16,15 @@ $auth = require_auth();
 $list = isset($_GET['list']);
 $q    = trim($_GET['q'] ?? '');
 
+// Common SELECT fragment for dropdown names
+$nameExpr = "CONCAT('Room ', id, ' - ', COALESCE(type, 'General')) AS name";
+
 if ($list) {
   if ($q !== '') {
     $isNum = ctype_digit($q);
     if ($isNum) {
       $stmt = $mysqli->prepare("
-        SELECT id, CONCAT('Room ', id, ' — ', COALESCE(type, 'General')) AS name
+        SELECT id, $nameExpr, type, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
         FROM Rooms
         WHERE id = ?
         ORDER BY id
@@ -30,7 +35,7 @@ if ($list) {
     } else {
       $like = "%$q%";
       $stmt = $mysqli->prepare("
-        SELECT id, CONCAT('Room ', id, ' — ', COALESCE(type, 'General')) AS name
+        SELECT id, $nameExpr, type, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
         FROM Rooms
         WHERE type LIKE ?
         ORDER BY id
@@ -46,7 +51,7 @@ if ($list) {
     echo json_encode(['rooms' => $rows]);
     exit;
   } else {
-    $sql = "SELECT id, CONCAT('Room ', id, ' — ', COALESCE(type, 'General')) AS name
+    $sql = "SELECT id, $nameExpr, type, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
             FROM Rooms
             ORDER BY id
             LIMIT 50";
@@ -58,17 +63,17 @@ if ($list) {
   }
 }
 
-/* Full listing (if you ever need it) */
+/* Full listing (searchable) */
 if ($q !== '') {
   $like = "%$q%";
   $stmt = $mysqli->prepare("
     SELECT id, type, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
     FROM Rooms
-    WHERE type LIKE ?
+    WHERE type LIKE ? OR CAST(id AS CHAR) LIKE ?
     ORDER BY id
     LIMIT 500
   ");
-  $stmt->bind_param('s', $like);
+  $stmt->bind_param('ss', $like, $like);
   $stmt->execute();
   $res = $stmt->get_result();
   $rows = $res->fetch_all(MYSQLI_ASSOC);

@@ -23,7 +23,7 @@ try {
   if (!is_string($field)) { http_response_code(400); echo json_encode(['error'=>'Missing field']); exit; }
 
   // Whitelist allowed columns
-  $allowed = ['first_name','last_name','phone','email','dob','address'];
+  $allowed = ['first_name','last_name','phone','email','dob','address','medical_history','surgical_history','allergies'];
   if (!in_array($field, $allowed, true)) {
     http_response_code(400); echo json_encode(['error'=>'Invalid field']); exit;
   }

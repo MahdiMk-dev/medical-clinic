@@ -25,6 +25,12 @@ try {
   $type      = trim((string)($input['type']    ?? 'Consultation'));
   $summary   = trim((string)($input['summary'] ?? ''));
   $comment   = trim((string)($input['comment'] ?? ''));
+  $vitals_bp    = trim((string)($input['vitals_bp']    ?? ''));
+  $vitals_hr    = trim((string)($input['vitals_hr']    ?? ''));
+  $vitals_temp  = trim((string)($input['vitals_temp']  ?? ''));
+  $vitals_rr    = trim((string)($input['vitals_rr']    ?? ''));
+  $vitals_spo2  = trim((string)($input['vitals_spo2']  ?? ''));
+  $vitals_notes = trim((string)($input['vitals_notes'] ?? ''));
 
   // chargesId may come as chargesId or chargesID
   $chargesId = isset($input['chargesId']) ? (int)$input['chargesId']
@@ -115,15 +121,18 @@ try {
   $sql = "INSERT INTO `Appointments`
           (`doctorId`,`patientID`,`roomID`,`from_time`,`to_time`,`date`,
            `summary`,`chargesID`,`comment`,`type`,`status`,`clearance`,
+           `vitals_bp`,`vitals_hr`,`vitals_temp`,`vitals_rr`,`vitals_spo2`,`vitals_notes`,
            `createdBy`,`editBy`,`createdAt`,`updatedAt`)
           VALUES (?,?,?,?,?,?,?,
                   ?,?,?,?,'pending',
+                  ?,?,?, ?, ?, ?, ?, ?,
                   ?,?, NOW(), NOW())";
   $stmt = $mysqli->prepare($sql);
-  $stmt->bind_param('iiissssisssii',
+  $stmt->bind_param('iiissssissssssssii',
     $doctorId, $patientId, $roomId,
     $from_time, $to_time, $date,
     $summary, $chargesId, $comment, $type, $status,
+    $vitals_bp, $vitals_hr, $vitals_temp, $vitals_rr, $vitals_spo2, $vitals_notes,
     $createdBy, $editBy
   );
   $stmt->execute();

@@ -1,28 +1,15 @@
 <?php
-header('Access-Control-Allow-Origin: http://localhost');
+header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 header('Content-Type: application/json');
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 require_once __DIR__ . '/../src/db.php';
-require_once __DIR__ . '/../src/jwt.php';
+require_once __DIR__ . '/../src/auth_mw.php';
 
-// --- Auth ---
-function bearer() {
-  $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-  if (!$hdr && function_exists('apache_request_headers')) {
-    $headers = apache_request_headers();
-    $hdr = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-  }
-  if (preg_match('/Bearer\s+(.+)/i', $hdr, $m)) return trim($m[1]);
-  return null;
-}
-$tok = bearer();
-if (!$tok) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'Missing token']); exit; }
-try { $claims = jwt_decode($tok, $config['jwt_secret']); }
-catch (Throwable $e) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'Invalid token']); exit; }
+$auth = require_auth();
 
 // --- Input ---
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -61,6 +48,12 @@ $to_time   = array_key_exists('to_time',$input) || array_key_exists('to',$input)
 
 $summary   = array_key_exists('summary',$input) ? (trim((string)$input['summary']) ?: null) : null;
 $comment   = array_key_exists('comment',$input) ? (trim((string)$input['comment']) ?: null) : null;
+$vitals_bp    = array_key_exists('vitals_bp',$input)    ? (trim((string)$input['vitals_bp'])    ?: null) : null;
+$vitals_hr    = array_key_exists('vitals_hr',$input)    ? (trim((string)$input['vitals_hr'])    ?: null) : null;
+$vitals_temp  = array_key_exists('vitals_temp',$input)  ? (trim((string)$input['vitals_temp'])  ?: null) : null;
+$vitals_rr    = array_key_exists('vitals_rr',$input)    ? (trim((string)$input['vitals_rr'])    ?: null) : null;
+$vitals_spo2  = array_key_exists('vitals_spo2',$input)  ? (trim((string)$input['vitals_spo2'])  ?: null) : null;
+$vitals_notes = array_key_exists('vitals_notes',$input) ? (trim((string)$input['vitals_notes']) ?: null) : null;
 
 // Merge with current values
 $cand = [
@@ -70,8 +63,14 @@ $cand = [
   'date'      => $date      !== '' ? $date : (string)$cur['date'],
   'from_time' => $from_time !== null ? $from_time : (string)$cur['from_time'],
   'to_time'   => $to_time   !== null ? $to_time   : (string)$cur['to_time'],
-  'summary'   => $summary,
-  'comment'   => $comment,
+  'summary'   => $summary !== null ? $summary : $cur['summary'],
+  'comment'   => $comment !== null ? $comment : $cur['comment'],
+  'vitals_bp'    => $vitals_bp    !== null ? $vitals_bp    : $cur['vitals_bp'],
+  'vitals_hr'    => $vitals_hr    !== null ? $vitals_hr    : $cur['vitals_hr'],
+  'vitals_temp'  => $vitals_temp  !== null ? $vitals_temp  : $cur['vitals_temp'],
+  'vitals_rr'    => $vitals_rr    !== null ? $vitals_rr    : $cur['vitals_rr'],
+  'vitals_spo2'  => $vitals_spo2  !== null ? $vitals_spo2  : $cur['vitals_spo2'],
+  'vitals_notes' => $vitals_notes !== null ? $vitals_notes : $cur['vitals_notes'],
 ];
 
 // Validate
@@ -120,13 +119,19 @@ $stmt = $mysqli->prepare("
          `date`    = ?,
          from_time = ?,
          to_time   = ?,
-         summary   = COALESCE(?, summary),
-         comment   = COALESCE(?, comment),
+         summary   = ?,
+         comment   = ?,
+         vitals_bp    = ?,
+         vitals_hr    = ?,
+         vitals_temp  = ?,
+         vitals_rr    = ?,
+         vitals_spo2  = ?,
+         vitals_notes = ?,
          updatedAt = NOW()
    WHERE id = ?
 ");
 $stmt->bind_param(
-  'iiisssssi',
+  'iiisssssssssssi',
   $cand['doctorId'],
   $cand['roomId'],
   $cand['patientId'],
@@ -135,6 +140,12 @@ $stmt->bind_param(
   $cand['to_time'],
   $cand['summary'],
   $cand['comment'],
+  $cand['vitals_bp'],
+  $cand['vitals_hr'],
+  $cand['vitals_temp'],
+  $cand['vitals_rr'],
+  $cand['vitals_spo2'],
+  $cand['vitals_notes'],
   $id
 );
 $stmt->execute();

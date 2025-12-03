@@ -78,6 +78,7 @@
   --z-drawer: 500;
   --z-modal: 1000;
   --z-toast: 2000;
+  --sidebar-width: 240px;
 }
 
 /* ===============================
@@ -109,13 +110,16 @@ body {
   height: 100%;
 }
 
+body:not(.login-page) {
+  padding-left: var(--sidebar-width);
+}
+
 /* ===============================
    Main Layout Grid
    =============================== */
 .layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  height: 100vh;
+  display: block;
+  min-height: 100vh;
   width: 100%;
 }
 
@@ -169,6 +173,7 @@ label {
 input[type="text"],
 input[type="password"],
 input[type="email"],
+input[type="tel"],
 input[type="date"],
 input[type="time"],
 input[type="number"],
@@ -189,6 +194,7 @@ textarea {
 input[type="text"]:focus,
 input[type="password"]:focus,
 input[type="email"]:focus,
+input[type="tel"]:focus,
 input[type="date"]:focus,
 input[type="time"]:focus,
 input[type="number"]:focus,
@@ -482,14 +488,15 @@ button:not(.btn-secondary):not(.btn-ghost):not(.btn-small):active {
    Layout & Container
    =============================== */
 .layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 0;
+  display: block;
   min-height: 100vh;
+  width: 100%;
 }
 
 .container {
   width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   padding: var(--space-2xl) var(--space-xl);
   overflow-y: auto;
 }
@@ -564,8 +571,11 @@ section.card {
    Sidebar Navigation
    =============================== */
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
   height: 100vh;
   background: linear-gradient(180deg, var(--primary-dark) 0%, #1e40af 100%);
   color: var(--white);
@@ -619,14 +629,64 @@ section.card {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.nav-title {
-  font-size: var(--font-xs);
+.nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.nav-toggle {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
   font-weight: 700;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: var(--space-md);
-  display: block;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-toggle .nav-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  font-weight: 800;
+  margin-right: 10px;
+}
+
+.nav-toggle .nav-label {
+  flex: 1;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.nav-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  margin-left: 8px;
+}
+
+.nav-toggle.collapsed .nav-chevron {
+  transform: rotate(-90deg);
+}
+
+.nav-links.collapsed {
+  display: none;
 }
 
 .nav-link {
@@ -698,6 +758,10 @@ section.card {
 
   .sidebar {
     display: none;
+  }
+
+  body:not(.login-page) {
+    padding-left: 0;
   }
 
   .container {
@@ -1120,6 +1184,57 @@ tr.status-canceled:hover { background: #FEE2E2; }
   max-width: 360px;
 }
 
+/* Patient history cards */
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.history-card {
+  border: 1px solid #E5F2F3;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #F9FCFC;
+  box-shadow: var(--shadow-sm);
+}
+.history-card h3 {
+  margin: 0 0 8px 0;
+  font-size: var(--font-lg);
+  color: var(--primary-dark);
+}
+.history-card .history-toggle {
+  margin-top: 8px;
+}
+.history-card p {
+  margin: 0;
+  color: var(--neutral-600);
+  white-space: pre-line;
+}
+.history-empty {
+  color: #9AA6A8;
+  font-style: italic;
+}
+.history-editor.hidden {
+  display: none;
+}
+.hidden {
+  display: none !important;
+}
+
+.notes-cell {
+  min-width: 160px;
+}
+.note-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #E4EEF8;
+  border-radius: 10px;
+  background: #F7FBFF;
+  box-shadow: var(--shadow-sm);
+  white-space: pre-line;
+  font-size: var(--font-sm);
+}
+
 /* ===============================
    Drawer (side panel) - Medical Theme
    =============================== */
@@ -1336,6 +1451,11 @@ body.login-page {
   width: 100%;
   max-width: 460px;
   padding: var(--space-lg);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 .login-box {
@@ -1344,6 +1464,7 @@ body.login-page {
   box-shadow: var(--shadow-xl);
   padding: var(--space-2xl);
   border: 1px solid var(--neutral-200);
+  width: 100%;
 }
 
 .login-box::before {
@@ -1407,7 +1528,8 @@ body.login-page {
 .toggle-password {
   position: absolute;
   right: var(--space-lg);
-  top: calc(var(--space-md) + var(--space-lg) + var(--space-sm) + 20px);
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--primary-main);
@@ -1674,6 +1796,25 @@ body.login-page {
   font-family: inherit;
 }
 
+.calendar-shell #calendar .fc .fc-button,
+.calendar-shell #calendar .fc .fc-button-primary {
+  background-color: var(--primary-main);
+  border-color: var(--primary-main);
+  color: #fff;
+}
+
+.calendar-shell #calendar .fc .fc-button:hover,
+.calendar-shell #calendar .fc .fc-button-primary:hover {
+  background-color: var(--primary-light);
+  border-color: var(--primary-light);
+}
+
+.calendar-shell #calendar .fc .fc-button.fc-button-active,
+.calendar-shell #calendar .fc .fc-button-primary.fc-button-active {
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
 .calendar-shell #calendar .fc .fc-button-primary {
   background-color: var(--primary-main);
   border-color: var(--primary-main);
@@ -1755,8 +1896,26 @@ body.login-page {
 .calendar-shell #calendar .fc .fc-daygrid,
 .calendar-shell #calendar .fc .fc-daygrid-day,
 .calendar-shell #calendar .fc .fc-daygrid-bg {
-  background: #ffffff !important;
-  opacity: 1 !important;
+    background: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Force the entire calendar canvas to stay white (remove gray gutters) */
+.calendar-shell,
+.calendar-shell #calendar,
+.calendar-shell #calendar .fc,
+.calendar-shell #calendar .fc .fc-view-harness,
+.calendar-shell #calendar .fc .fc-view-harness-active,
+.calendar-shell #calendar .fc .fc-scrollgrid,
+.calendar-shell #calendar .fc .fc-scrollgrid-section,
+.calendar-shell #calendar .fc .fc-timegrid-axis,
+.calendar-shell #calendar .fc .fc-timegrid-cols,
+.calendar-shell #calendar .fc .fc-timegrid-col,
+.calendar-shell #calendar .fc .fc-timegrid-bg {
+    background-color: #ffffff !important;
+}
+.calendar-shell #calendar {
+    width: 100%;
 }
 
 /* Event opacity & base styles */
@@ -1927,14 +2086,16 @@ body.login-page {
 
 .calendar-page {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: block;
+  width: 100%;
 }
 
 .calendar-main {
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
+  width: 100%;
 }
 
 .topbar {
@@ -1968,8 +2129,9 @@ body.login-page {
 }
 
 #calendar {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .legend {
